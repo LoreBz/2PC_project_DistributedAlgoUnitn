@@ -24,6 +24,7 @@ import javax.swing.UnsupportedLookAndFeelException;
  *
  * @author Lorenzo
  */
+//l'unica classe con un main parte tutto da qua
 public class First2PC {
 
     public static void main(String[] args) {
@@ -90,24 +91,24 @@ public class First2PC {
         final ArrayList<JFrame> frames = new ArrayList<>();
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         Random r = new Random();
-        
+
         JFrame coordFrame = coordinator.buildGUI();
         int width = (int) coordFrame.getSize().getWidth();
         int height = (int) coordFrame.getSize().getHeight();
-        coordFrame.setLocation(width/4,height/4);
-        Point coord_point=coordFrame.getLocation();
+        coordFrame.setLocation(width / 4, height / 4);
+        Point coord_point = coordFrame.getLocation();
         frames.add(coordFrame);
-        Cohort previous=null;
-        for (int i=0; i<cohorts.size(); i++) {
-            Cohort actual=cohorts.get(i);
+        Cohort previous = null;
+        for (int i = 0; i < cohorts.size(); i++) {
+            Cohort actual = cohorts.get(i);
             JFrame frame = actual.buildGUI();
-            if (previous==null) {
-                frame.setLocation((int) (coord_point.x+frame.getSize().getWidth()+30), (int) (coord_point.y));
+            if (previous == null) {
+                frame.setLocation((int) (coord_point.x + frame.getSize().getWidth() + 30), (int) (coord_point.y));
             } else {
-                Point p=previous.getFrame().getLocation();
-                frame.setLocation( p.x, (int) (p.y+frame.getSize().getHeight()+20));
+                Point p = previous.getFrame().getLocation();
+                frame.setLocation(p.x, (int) (p.y + frame.getSize().getHeight() + 20));
             }
-            previous=actual;
+            previous = actual;
             frames.add(frame);
         }
 
