@@ -340,6 +340,7 @@ public class CohortFrame extends javax.swing.JFrame {
     private void btn_noActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_noActionPerformed
         //manage UI and start a cohort.vote() in a new thread
         //UI management
+        //cohort.allowAbort();
         btn_yes.setEnabled(false);
         btn_no.setEnabled(false);
         init_lbl.setEnabled(false);
@@ -480,6 +481,7 @@ public class CohortFrame extends javax.swing.JFrame {
         btn_commit.setEnabled(false);
         btn_no.setEnabled(false);
         btn_yes.setEnabled(false);
+        btn_terminationProt.setEnabled(false);
     }
 
     public void allowCommit() {
@@ -491,12 +493,16 @@ public class CohortFrame extends javax.swing.JFrame {
         btn_commit.setEnabled(true);
         btn_no.setEnabled(false);
         btn_yes.setEnabled(false);
+        btn_terminationProt.setEnabled(false);
     }
 
     public void displayAbort() {
         consolleTextArea.append("ABORT!\n");
         btn_abort.setEnabled(false);
         abort_lbl.setForeground(Color.BLUE);
+        abort_lbl.setEnabled(true);
+        init_lbl.setEnabled(false);
+        ready_lbl.setEnabled(false);
     }
 
     public void displayCommit() {

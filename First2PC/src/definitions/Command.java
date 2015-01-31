@@ -17,4 +17,5 @@ public class Command {
     public static final String COMMIT = "commit";
     public static final String TERMINATION = "termination";
     public static final String GET_DECISION = "get_decision";
+    public static final String IS_INIT = "is_init_(means has not voted!)";
 }

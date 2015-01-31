@@ -8,6 +8,7 @@ package first2pc;
 import definitions.Command;
 import definitions.CoordState;
 import definitions.Params;
+import gui.CohortFrame;
 import gui.CoordFrame;
 import remote_interfaces.PeerInterface;
 import java.awt.event.ActionEvent;
@@ -73,6 +74,7 @@ public class Coordinator extends Node implements PeerInterface, ICoordinator, IF
         } catch (UnknownHostException ex) {
             Logger.getLogger(Coordinator.class.getName()).log(Level.SEVERE, null, ex);
         }
+
     }
 
     public synchronized ArrayList<Boolean> broadcastMessage(final String command, final Map<String, Object> params) {
@@ -388,6 +390,7 @@ public class Coordinator extends Node implements PeerInterface, ICoordinator, IF
                         boolean stop = false;
                         while (!stop) {
                             if (abortReceived()) {
+                                frame.getConsolleTextArea().append("vote NO received, should ABORT\n");
 //                                stopTimer();
 //                                abort(Command.ABORT, null);
                                 return false;
@@ -414,7 +417,7 @@ public class Coordinator extends Node implements PeerInterface, ICoordinator, IF
 
                 } catch (InterruptedException ex) {
                     Logger.getLogger(Coordinator.class.getName()).log(Level.SEVERE, null, ex);
-                    frame.getConsolleTextArea().append("Timeout expired go to abort automatically\n");
+                    // frame.getConsolleTextArea().append("Timeout expired go to abort automatically\n");
                     //System.out.println("I voti non sono arrivati in tempo");
                     Logger.getLogger(Coordinator.class.getName()).log(Level.SEVERE, null, ex);
                     stopTimer();
@@ -425,11 +428,12 @@ public class Coordinator extends Node implements PeerInterface, ICoordinator, IF
                         try {
                             if (ft.get() == true) {
                                 stopTimer();
-                                allowCommitOrAbort();
+                                //allowCommitOrAbort();
+                                allowCommit();
                             } else {
                                 //il caso in cui è arrivato un abort message dai cohort
                                 stopTimer();
-                                abort(Command.ABORT, null);
+                                allowAbort();
                                 return;
                             }
                         } catch (InterruptedException | ExecutionException ex) {
@@ -439,7 +443,7 @@ public class Coordinator extends Node implements PeerInterface, ICoordinator, IF
                         //handling cancellation, that means time out expired and task was cancelled
                         frame.getConsolleTextArea().append("Timeout expired you have to abort automatically\n");
                         stopTimer();
-                        abort(Command.ABORT, null);
+                        allowAbort();
                         return;
                     }
                 }
@@ -487,6 +491,14 @@ public class Coordinator extends Node implements PeerInterface, ICoordinator, IF
         frame.allowCommitOrAbort();
     }
 
+    private void allowAbort() {
+        frame.allowAbort();
+    }
+
+    private void allowCommit() {
+        frame.allowCommit();
+    }
+
     private void enterCOMMITstate() {
         setState(CoordState.COMMIT);
         frame.displayCommit();
@@ -497,4 +509,5 @@ public class Coordinator extends Node implements PeerInterface, ICoordinator, IF
         setState(CoordState.ABORT);
         frame.displayAbort();
     }
+
 }

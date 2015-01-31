@@ -10,7 +10,10 @@ import definitions.Params;
 import first2pc.Cohort;
 import first2pc.Coordinator;
 import java.awt.Color;
-import java.util.ArrayList;
+import java.awt.Window;
+import java.io.File;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +23,6 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
-import javax.swing.ListModel;
 import javax.swing.text.DefaultCaret;
 
 /**
@@ -491,5 +493,26 @@ public class CoordFrame extends javax.swing.JFrame {
             System.out.println(sl);
         }
         return selectedValuesList;
+    }
+
+    public void allowAbort() {
+        this.wait_lbl.setEnabled(false);
+        this.commit_lbl.setEnabled(false);
+        //this.commit_lbl.setForeground(Color.red);
+        this.abort_lbl.setEnabled(true);
+        this.abort_lbl.setForeground(Color.red);
+        btn_requestVote.setEnabled(false);
+        //btn_commit.setEnabled(true);
+        btn_abort.setEnabled(true);
+    }
+    public void allowCommit() {
+        this.wait_lbl.setEnabled(false);
+        this.commit_lbl.setEnabled(true);
+        this.commit_lbl.setForeground(Color.red);
+        this.abort_lbl.setEnabled(false);
+        this.abort_lbl.setForeground(Color.red);
+        btn_requestVote.setEnabled(false);
+        btn_commit.setEnabled(true);
+        //btn_abort.setEnabled(true);
     }
 }

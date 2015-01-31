@@ -17,6 +17,7 @@ import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
@@ -30,13 +31,20 @@ public class First2PC {
     public static void main(String[] args) {
         //the bootstrap of application: creation of rmi registry...
         bootstrap();
-        //creation of coord and cohorts
+        //creation of coord and cohort
+        int num = 2;
+        String s = JOptionPane.showInputDialog("How many cohorts? (better less than 4)");
+        num = Integer.parseInt(s);
         Coordinator coordinator = new Coordinator("coordinator");
-        ArrayList<Cohort> cohorts = setupCohorts(coordinator);
+        ArrayList<Cohort> cohorts = setupCohorts(coordinator, num);
 
         System.out.println("Coordinator and cohorts ready");
         //start GUI
         displayAll(coordinator, cohorts);
+        
+        //other setting to bootstrap correctly
+        foo(cohorts);
+        
 
     }
 
@@ -50,9 +58,9 @@ public class First2PC {
         }
     }
 
-    private static ArrayList<Cohort> setupCohorts(Coordinator coordinator) {
+    private static ArrayList<Cohort> setupCohorts(Coordinator coordinator, int num) {
         ArrayList<Cohort> retval = new ArrayList<>();
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < num; i++) {
             Cohort c = new Cohort("cohort_" + i, coordinator);
             retval.add(c);
         }
@@ -105,8 +113,16 @@ public class First2PC {
             if (previous == null) {
                 frame.setLocation((int) (coord_point.x + frame.getSize().getWidth() + 30), (int) (coord_point.y));
             } else {
-                Point p = previous.getFrame().getLocation();
-                frame.setLocation(p.x, (int) (p.y + frame.getSize().getHeight() + 20));
+                if (i % 2 == 1) {
+                    //metti sotto
+                    Point p = previous.getFrame().getLocation();
+                    frame.setLocation(p.x, (int) (p.y + frame.getSize().getHeight() + 20));
+                } else {
+                    //metti in alto a destra
+                    Point p = previous.getFrame().getLocation();
+                    frame.setLocation((int) (p.x + frame.getSize().getWidth()+ 20), (int) (p.y - frame.getSize().getHeight() - 20));
+                }
+
             }
             previous = actual;
             frames.add(frame);
@@ -121,5 +137,13 @@ public class First2PC {
             }
         });
 
+    }
+
+    
+
+    private static void foo(ArrayList<Cohort> cohorts) {
+        for (Cohort cohort : cohorts) {
+            cohort.enterINITstate();
+        }
     }
 }

@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JButton;
@@ -61,6 +62,8 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
     private Timer timer = null;
     private boolean shouldCommit = false;
     private boolean shouldAbort = false;
+    private boolean vote_arrived = false;
+    private boolean init_timeout = false;
 
     public Cohort(String name, Coordinator coord) {
         super();
@@ -80,6 +83,7 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
         } catch (UnknownHostException ex) {
             Logger.getLogger(Coordinator.class.getName()).log(Level.SEVERE, null, ex);
         }
+
     }
 
     //da cambiare la firma, facciamo che i params sono un dizionario <String,Object>
@@ -94,11 +98,25 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
         //dealing with different requests
         switch (command) {
             case Command.REQUEST_VOTE:
+                if (!state.equals(CohortState.INIT)) {
+                    setVoteArrived(false);
+                    break;
+//            try {
+//                Thread.sleep(100000);
+//            } catch (InterruptedException ex) {
+//                Logger.getLogger(Cohort.class.getName()).log(Level.SEVERE, null, ex);
+//            }
+                }
                 Integer vote = (Integer) params.get(Params.VOTE);
                 txt_area.append("Received vote=" + vote + " request from Coord\n");
                 dec_label.setText("" + vote);
+                if (init_timeout) {
+                    retval = false;
+                    break;
+                }
                 btn_yes.setEnabled(true);
                 btn_no.setEnabled(true);
+                setVoteArrived(true);
                 retval = true;
                 break;
             case Command.COMMIT:
@@ -122,19 +140,18 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
                 retval = true;
                 break;
             case Command.TERMINATION:
-                txt_area.append("termination request received. Replying true if deciced else false\n");
-                if (state.equals(CohortState.ABORT) || state.equals(CohortState.COMMIT)) {
-                    retval = true;
-                } else {
-                    retval = false;
-                }
+                txt_area.append("termination request received. Replying false if READY, else true\n");
+                retval = !state.equals(CohortState.READY);
                 break;
             case Command.GET_DECISION:
                 if (state.equals(CohortState.COMMIT)) {
                     txt_area.append("sending COMMIT to sibling");
                     retval = true;
                 } else {
-                    txt_area.append("sending COMMIT to sibling");
+                    txt_area.append("sending ABORT to sibling");
+                    if (!state.equals(CohortState.ABORT)) {
+                        allowAbort();
+                    }
                     retval = false;
                 }
                 break;
@@ -161,7 +178,7 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
     public JFrame buildGUI() {
         JFrame frame = new CohortFrame(this);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        Random r = new Random();
+        //Random r = new Random();
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 //        int width = (int) frame.getSize().getWidth();
 //        int height = (int) frame.getSize().getHeight();
@@ -190,7 +207,11 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
 
     @Override
     public synchronized boolean vote(final boolean answer, final String vote) {
-        enterREADYstate();
+        if (answer) {
+            enterREADYstate();
+        } else {
+            allowAbort();
+        }
         Map<String, Object> params = new HashMap<>();
         params.put(Params.YES_NO_VOTE, new Boolean(answer));
         params.put(Params.VOTE, vote);
@@ -206,6 +227,13 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
             if (cohort != this) {
                 decided = sendMessage(Command.TERMINATION, null, cohort.getName());
                 if (decided) {
+                    boolean isInit = sendMessage(Command.IS_INIT, null, cohort.getName());
+                    if (isInit) {
+                        //dovresti fare abort
+                        setShouldAbort(true);
+                        allowAbort();
+                        return true;
+                    }
                     boolean isCommitted = sendMessage(Command.GET_DECISION, null, cohort.getName());
                     if (isCommitted) {
                         frame.getConsolleTextArea().append("temination succed with COMMIT\n");
@@ -313,6 +341,7 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
                         int count = 0;
                         while (!stop) {
                             if (checkCommitOrAbort()) {
+                                stopTimer();
                                 return true;
                             }
                             Cohort.this.frame.getConsolleTextArea().append("Wait commit or abort message\n");
@@ -327,7 +356,7 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
                 tasks.add(callable);
                 List<Future<Boolean>> invokeAll = null;
                 try {
-                    //nella realtà non c'è timeout, se l'utente vuole può provare a lanciare il termination protocol quando lo ritiene opportuno
+
                     invokeAll = executor.invokeAll(tasks, 11, TimeUnit.SECONDS);
 
                 } catch (InterruptedException ex) {
@@ -343,6 +372,7 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
                     if (!ft.isCancelled()) {
                         try {
                             if (ft.get() == true) {
+
                                 stopTimer();
                             }
                         } catch (InterruptedException | ExecutionException ex) {
@@ -384,13 +414,11 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
             @Override
             public Boolean call() throws Exception {
                 //callable that periodically cheks if commit or abort message arrived
-//                        Cohort.this.frame.getConsolleTextArea().append("Wait commit or abort message\n");
-//                        Thread.sleep(3000);
-//                        Cohort.this.frame.getConsolleTextArea().append("Something arrived!\n");
                 boolean stop = false;
                 int count = 0;
                 while (!stop) {
                     if (checkCommitOrAbort()) {
+                        stopTimer();
                         return true;
                     }
                     Cohort.this.frame.getConsolleTextArea().append("Wait indefinitely or try to perform termination protocol\n");
@@ -401,16 +429,6 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
         };
         FutureTask<Boolean> ft = new FutureTask<>(callable);
         ExecutorService executor = Executors.newFixedThreadPool(10);
-//        ArrayList<Callable<Boolean>> tasks = new ArrayList<>();
-//         tasks.add(callable);
-//        List<Future<Boolean>> invokeAll = null;
-//        try {
-//            invokeAll = executor.invokeAll(tasks);
-//        } catch (InterruptedException ex) {
-//            Logger.getLogger(Cohort.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-        //check if every 3 seconds print indeterminate message to understand if controlling callable is beeing executed
-        //executor.execute(ft);
         ft.run();
         while (!ft.isDone()) {
             //do nothing or perform termination protocol
@@ -447,7 +465,12 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
         return shouldAbort || shouldCommit;
     }
 
+    private synchronized boolean checkVoteArrived() {
+        return vote_arrived;
+    }
+
     private void allowAbort() {
+        //setState(CohortState.ABORT);
         frame.allowAbort();
     }
 
@@ -457,5 +480,76 @@ public class Cohort extends Node implements PeerInterface, ICohort, IFaultyProce
 
     private void allowTerminationProtocol() {
         frame.allowTerminationProtocol();
+    }
+
+    public void enterINITstate() {
+        Thread t = new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                //  allowTerminationProtocol();
+                //JProgressBar pb = frame.getPb_timeout();
+                //pb.setIndeterminate(true);
+                //callable task that checks if request vote arrived in time, if not should abort
+                startTimer();
+                Callable callable = new Callable<Boolean>() {
+
+                    @Override
+                    public Boolean call() throws Exception {
+                        //callable that periodically cheks if requestVote is arrived
+                        boolean stop = false;
+                        while (!stop) {
+                            if (checkVoteArrived()) {
+                                stopTimer();
+                                return true;
+                            }
+                            Cohort.this.frame.getConsolleTextArea().append("Wait vote to arrive\n");
+                            Thread.sleep(2000);
+                        }
+                        return true;
+                    }
+                };
+                FutureTask<Boolean> ft = new FutureTask<>(callable);
+                ExecutorService executor = Executors.newFixedThreadPool(10);
+                executor.execute(ft);
+                try {
+                    ft.get(11, TimeUnit.SECONDS);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Cohort.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (ExecutionException ex) {
+                    Logger.getLogger(Cohort.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (TimeoutException ex) {
+                    Logger.getLogger(Cohort.class.getName()).log(Level.SEVERE, null, ex);
+                    stopTimer();
+                    ft.cancel(true);
+                    executor.shutdownNow();
+                    //System.out.println("timeout..dovremmo consentire solo abort");
+                    setInitTimeout(true);
+                    frame.getConsolleTextArea().append("Timeout expired, should abort!\n");
+                    allowAbort();
+                }
+//        if (ft.isCancelled()) {
+//            //caso del timeout
+//            System.out.println("timeout attesa richiesta voto..dovremmo consentire solo abort");
+//            allowAbort();
+//        }
+//        pb.setIndeterminate(false);
+//        pb.setValue(pb.getMinimum());
+            }
+        });
+//        while (this.frame==null) {
+//            System.out.println("in attesa che la grafica venga inizializzata");
+//        }
+        t.start();
+
+    }
+
+    private synchronized void setVoteArrived(boolean value) {
+        this.vote_arrived = value;
+
+    }
+
+    private synchronized void setInitTimeout(boolean value) {
+        this.init_timeout = value;
     }
 }
